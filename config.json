@@ -1,0 +1,12 @@
+{
+	"db":{
+		"host":"192.168.94.26",
+		"port":3316,
+		"user":"xxj",
+		"password":"123",
+		"type":"mysql",
+		"dbname":"service_api"
+	},
+	"step":1000,
+	"tablename":"id_gen"
+}
