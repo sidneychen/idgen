@@ -1,112 +1,87 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
+	//	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
-	ERR_ID     = 0
-	STATUS_ON  = 1
-	STATUS_OFF = 0
+	ERR_ID = 0
 )
 
-type IDPoolMap map[string]*IDPool
+type IDServiceMap map[string]*IDServiceGenerator
 
-type IDPoolMgr struct {
+type IDServiceMgr struct {
 	//	stats       *Stats
-	data      IDPoolMap
-	db        *sql.DB
-	tablename string
-	locker    *sync.RWMutex
+	data   IDServiceMap
+	bk     *Backend
+	locker *sync.RWMutex // protects data field
 }
 
-func NewIDPoolMgr() *IDPoolMgr {
-	return &IDPoolMgr{
+func NewIDServiceMgr(bk *Backend, cfg *Config) *IDServiceMgr {
+	mgr := &IDServiceMgr{
 		//		stats:       &Stats{},
-		data:   make(IDPoolMap),
+		data:   make(IDServiceMap),
+		bk:     bk,
 		locker: new(sync.RWMutex),
 	}
-}
-
-func getDBDsn(cfg *DBConfig) string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
-}
-
-func (self *IDPoolMgr) LoadConfig(cfg *Config) (err error) {
-	dbDsn := getDBDsn(cfg.DB)
-	db, err := sql.Open(cfg.DB.Type, dbDsn)
+	log.Printf("Start service")
+	err := mgr.loadAllService()
 	if err != nil {
 		panic(err)
 	}
-
-	log.Printf("connected to db, %s", dbDsn)
-	self.tablename = cfg.TableName
-	self.db = db
-	self.loadAllIDPoolFromDb()
-	return nil
+	return mgr
 }
 
-func (self *IDPoolMgr) RegisterIDPool(pool *IDPool) {
-	self.data[pool.Service] = pool
+func (self *IDServiceMgr) RegisterIDService(ider *IDServiceGenerator) {
+	self.data[ider.Service] = ider
 }
 
 // 获取新的id
-func (self *IDPoolMgr) NewId(service string) uint64 {
+func (self *IDServiceMgr) NewId(service string) uint64 {
 
-	pool, ok := self.data[service]
+	ider, ok := self.data[service]
 	if !ok {
 		return ERR_ID
 	}
-	return pool.GetID()
+	return ider.Gen()
 }
 
-func (self *IDPoolMgr) loadAllIDPoolFromDb() (err error) {
-
-	sql := fmt.Sprintf("SELECT `service`, `position` FROM `%s` WHERE `status`=?", self.tablename)
-	rows, err := self.db.Query(sql, STATUS_ON)
+func (self *IDServiceMgr) loadAllService() error {
+	iders, err := self.bk.GetAllService()
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	var (
-		position uint64
-		service  string
-	)
-	for rows.Next() {
-		err = rows.Scan(&service, &position)
-		if err != nil {
-			return err
-		}
-		pool := NewIDPool(self.db, self.tablename, service)
-		self.RegisterIDPool(pool)
+	self.locker.Lock()
+	defer self.locker.Unlock()
+
+	for ider := range iders {
+		self.RegisterIDService(ider)
 	}
 	return nil
 }
 
 // 获取新的id
-func (self *IDPoolMgr) AddService(service string) (err error) {
-
+func (self *IDServiceMgr) AddService(service string) error {
+	self.locker.Lock()
+	defer self.locker.Unlock()
 	if _, ok := self.data[service]; !ok {
-		sql := fmt.Sprintf("INSERT INTO `%s` (`service`, `position`, `update_time`, `status`) VALUES (?, ?, ?, ?)", self.tablename)
-		_, err := self.db.Exec(sql, service, 1, time.Now().Unix(), STATUS_ON)
+		ider, err := self.bk.CreateService(service)
 		if err != nil {
 			return err
 		}
-		pool := NewIDPool(self.db, self.tablename, service)
-		self.RegisterIDPool(pool)
+		self.RegisterIDService(ider)
 	}
 	return nil
 }
 
-func (self *IDPoolMgr) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (self *IDServiceMgr) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseForm()
 	switch r.URL.Path {
@@ -114,6 +89,7 @@ func (self *IDPoolMgr) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		service := r.Form.Get("service")
 		id := self.NewId(service)
+
 		fmt.Fprint(w, id)
 	case "/addservice":
 		service := r.Form.Get("service")

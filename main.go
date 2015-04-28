@@ -12,10 +12,11 @@ func main() {
 	configFile := "./config.json"
 	cfg := NewConfigFromFile(configFile)
 
-	mgr := NewIDPoolMgr()
-	mgr.LoadConfig(cfg)
-
+	bk, err := NewBackendFromConfig(cfg.DB)
+	if err != nil {
+		panic(err)
+	}
+	mgr := NewIDServiceMgr(bk, cfg)
 	http.Handle("/", mgr)
-
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

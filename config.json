@@ -5,8 +5,8 @@
 		"user":"xxj",
 		"password":"123",
 		"type":"mysql",
-		"dbname":"service_api"
+		"dbname":"service_api",
+		"tablename":"id_gen"		
 	},
-	"step":1000,
-	"tablename":"id_gen"
+	"step":1000
 }
