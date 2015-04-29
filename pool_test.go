@@ -20,6 +20,31 @@ func TestConfig(t *testing.T) {
 
 }
 
+func TestBackend(t *testing.T) {
+	cfg := NewConfigFromFile("./config.json")
+	bk, err := NewBackendFromConfig(cfg.DB)
+	if err != nil {
+		t.Logf("create backend, err=%v", err)
+	}
+	t.Logf("bk=%v", bk)
+
+}
+
+func TestService(t *testing.T) {
+	cfg := NewConfigFromFile("./config.json")
+	bk, err := NewBackendFromConfig(cfg.DB)
+	if err != nil {
+		t.Logf("create backend, err=%v", err)
+	}
+	s := NewIDServiceGenerator("goods_id", bk)
+	for i := 0; i < 100; i++ {
+		id := s.Gen()
+		t.Logf("get an id, id=%v", id)
+
+	}
+
+}
+
 //func TestNew(t *testing.T) {
 //	dbDsn := "xxj:123@tcp(192.168.94.26:3316)/service_api?charset=utf8"
 //	dbType := "mysql"

@@ -68,7 +68,7 @@ func (self *IDServiceMgr) loadAllService() error {
 }
 
 // 获取新的id
-func (self *IDServiceMgr) AddService(service string) error {
+func (self *IDServiceMgr) addService(service string) error {
 	self.locker.Lock()
 	defer self.locker.Unlock()
 	if _, ok := self.data[service]; !ok {
@@ -81,28 +81,27 @@ func (self *IDServiceMgr) AddService(service string) error {
 	return nil
 }
 
-func (self *IDServiceMgr) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
+// 获取新的id
+func (self *IDServiceMgr) AddService(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	switch r.URL.Path {
-	case "/get":
-
-		service := r.Form.Get("service")
-		id := self.NewId(service)
-
-		fmt.Fprint(w, id)
-	case "/addservice":
-		service := r.Form.Get("service")
-		if service == "" {
-			fmt.Fprint(w, "invalid service")
-			return
-		}
-		err := self.AddService(service)
-		if err != nil {
-			fmt.Fprint(w, err)
-			return
-		}
-		fmt.Fprint(w, "success")
-
+	service := r.Form.Get("service")
+	if service == "" {
+		fmt.Fprint(w, "invalid service")
+		return
 	}
+	err := self.addService(service)
+	if err != nil {
+		fmt.Fprint(w, err)
+		return
+	}
+	fmt.Fprint(w, "success")
+}
+
+// 获取新的id
+func (self *IDServiceMgr) Get(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	service := r.Form.Get("service")
+	log.Printf("get a request, method=get, service=%v", service)
+	id := self.NewId(service)
+	fmt.Fprint(w, id)
 }
