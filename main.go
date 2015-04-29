@@ -1,7 +1,8 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	//	"log"
 	"net/http"
 	"runtime"
 )
@@ -16,7 +17,11 @@ func main() {
 		panic(err)
 	}
 	mgr := NewIDServiceMgr(bk, cfg)
+	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "it works")
+	})
 	http.HandleFunc("/get", mgr.Get)
 	http.HandleFunc("/addservice", mgr.AddService)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	http.ListenAndServe(":8080", nil)
+	//	log.Fatal(http.ListenAndServe(":8080", nil))
 }

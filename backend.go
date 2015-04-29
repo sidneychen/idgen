@@ -45,10 +45,10 @@ func NewBackendFromConfig(cfg *DBConfig) (*Backend, error) {
 }
 
 // get all service
-func (self *Backend) GetAllService() (chan *IDServiceGenerator, error) {
+func (self *Backend) GetAllService(srvs *[]*IDServiceGenerator) error {
 	rows, err := self.db.Query(QUERYLIST_SQL, STATUS_ON)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
 
@@ -56,19 +56,17 @@ func (self *Backend) GetAllService() (chan *IDServiceGenerator, error) {
 		position uint64
 		service  string
 	)
-	iders := make(chan *IDServiceGenerator)
+
 	for rows.Next() {
 		err = rows.Scan(&service, &position)
 		if err != nil {
 			log.Printf("Scan a row fail, error=%v", err)
 			continue
 		}
-		go func(service string) {
-			ider := NewIDServiceGenerator(service, self)
-			iders <- ider
-		}(service)
+		srv := NewIDServiceGenerator(service, self)
+		*srvs = append(*srvs, srv)
 	}
-	return iders, nil
+	return nil
 }
 
 // create a new service

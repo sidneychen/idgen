@@ -32,6 +32,7 @@ func NewIDServiceMgr(bk *Backend, cfg *Config) *IDServiceMgr {
 	}
 	log.Printf("Start service")
 	err := mgr.loadAllService()
+	log.Printf("Finish all service loaded")
 	if err != nil {
 		panic(err)
 	}
@@ -42,7 +43,6 @@ func (self *IDServiceMgr) RegisterIDService(ider *IDServiceGenerator) {
 	self.data[ider.Service] = ider
 }
 
-// 获取新的id
 func (self *IDServiceMgr) NewId(service string) uint64 {
 
 	ider, ok := self.data[service]
@@ -53,21 +53,22 @@ func (self *IDServiceMgr) NewId(service string) uint64 {
 }
 
 func (self *IDServiceMgr) loadAllService() error {
-	iders, err := self.bk.GetAllService()
+	srvs := []*IDServiceGenerator{}
+	err := self.bk.GetAllService(&srvs)
 	if err != nil {
 		return err
 	}
+	log.Print(srvs)
 
 	self.locker.Lock()
 	defer self.locker.Unlock()
 
-	for ider := range iders {
-		self.RegisterIDService(ider)
+	for _, srv := range srvs {
+		self.RegisterIDService(srv)
 	}
 	return nil
 }
 
-// 获取新的id
 func (self *IDServiceMgr) addService(service string) error {
 	self.locker.Lock()
 	defer self.locker.Unlock()
@@ -81,7 +82,6 @@ func (self *IDServiceMgr) addService(service string) error {
 	return nil
 }
 
-// 获取新的id
 func (self *IDServiceMgr) AddService(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	service := r.Form.Get("service")
@@ -97,7 +97,6 @@ func (self *IDServiceMgr) AddService(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "success")
 }
 
-// 获取新的id
 func (self *IDServiceMgr) Get(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	service := r.Form.Get("service")
